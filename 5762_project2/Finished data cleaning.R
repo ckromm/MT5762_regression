@@ -19,7 +19,6 @@ colnames(baby)[13] <- "mwt"
 
 
 #Remove columns that don't show useful information/are all the same
-baby <- baby[-grep('id', colnames(baby))] 
 baby <- baby[-grep('pluralty', colnames(baby))] 
 baby <- baby[-grep('outcome', colnames(baby))] 
 baby <- baby[-grep('sex', colnames(baby))]
