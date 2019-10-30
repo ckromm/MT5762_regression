@@ -4,7 +4,10 @@
 
 library(tidyverse)
 
-baby <- read.delim("C:/Users/ntrac/OneDrive/Documents/IDMasters/MT5762/Project 2/babies23data.txt", sep="", header=TRUE)
+get_data <- function(name) {
+
+baby <- read.delim(name, sep="", header=TRUE)
+
 attach(baby)  
 
 
@@ -69,32 +72,36 @@ baby$drace[baby$drace == 4] <- 5
 baby$ded[baby$ded == 7] <- 6
 
 
-############################
-#Test Set
-############################
-#get a random number so my random number generator is deterministic.
-set.seed(095)
-
-#The test set baby weights.
-test_set <- as.data.frame(sample(unique(baby[, 1]) , round((length(baby[, 1])*0.2))))
-colnames(test_set) <- "id"
-
-#TRAINING
-#get training dataset
-training_set<-as.data.frame(unique(baby[, 1])[which(is.na(match(unique(baby[, 1]), test_set[, 1])))])
-colnames(training_set) <- "id"
-
-#check it worked.
-nrow(training_set) + nrow(test_set) == length(unique(baby[, 1]))
-
-#Analysis data
-schooling <- semi_join(baby, training_set, by = "id")
-
-#save test data for after the model is built. 
-test_data <- semi_join(baby, test_set, by = "id")
-
-#check no child left behind.
-nrow(test_data) + nrow(training_set) == nrow(baby)
+  ############################
+  #Test Set
+  ############################
+  #get a random number so my random number generator is deterministic.
+  set.seed(095)
+  
+  #The test set baby weights.
+  test_set <- as.data.frame(sample(unique(baby[, 1]) , round((length(baby[, 1])*0.2))))
+  colnames(test_set) <- "id"
+  
+  #TRAINING
+  #get training dataset
+  training_set<-as.data.frame(unique(baby[, 1])[which(is.na(match(unique(baby[, 1]), test_set[, 1])))])
+  colnames(training_set) <- "id"
+  
+  #check it worked.
+  nrow(training_set) + nrow(test_set) == length(unique(baby[, 1]))
+  
+  #Analysis data
+  schooling <- semi_join(baby, training_set, by = "id")
+  
+  #save test data for after the model is built. 
+  test_data <- semi_join(baby, test_set, by = "id")
+  
+  #check no child left behind.
+  nrow(test_data) + nrow(training_set) == nrow(baby)
+  
+  return(list(test = test_data, train = schooling))
+  
+}
 
 
 
