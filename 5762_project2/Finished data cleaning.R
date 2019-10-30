@@ -80,7 +80,7 @@ baby <- baby[-grep('outcome', colnames(baby))]
 baby <- baby[-grep('sex', colnames(baby))]
 
 #Convert dates to actual date format
-baby$date <- as.Date((date-1096), origin = "1961-01-01")
+baby$date <- as.Date((baby$date-1096), origin = "1961-01-01")
 
 #Replace all unknowns with NA as per descriptor readme values
 baby$gestation[baby$gestation == "999"] <- NA
