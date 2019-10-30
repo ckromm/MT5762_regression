@@ -81,31 +81,13 @@ baby <- baby[-grep('sex', colnames(baby))]
 
 #Convert dates to actual date format
 baby$date <- as.Date((baby$date-1096), origin = "1961-01-01")
-
-#Replace all unknowns with NA as per descriptor readme values
-baby$gestation[baby$gestation == "999"] <- NA
-baby$mrace[baby$mrace == "99"] <- NA
-baby$mage[baby$mage == "99"] <- NA
-baby$med[baby$med == "9"] <- NA
-baby$mht[baby$mht == "99"] <- NA
-baby$mwt[baby$mwt == "999"] <- NA
-baby$drace[baby$drace == "99"] <- NA
-baby$dage[baby$dage == "99"] <- NA
-baby$ded[baby$ded == "9"] <- NA
-baby$dht[baby$dht == "99"] <- NA
-baby$dwt[baby$dwt == "999"] <- NA
-baby$marital[baby$marital == "0"] <- NA
-baby$inc[baby$inc == "98"] <- NA
-baby$smoke[baby$smoke == "9"] <- NA
-baby$time[baby$time == "99"] <- NA
-baby$time[baby$time == "98"] <- NA  
-baby$number[baby$number == "98"] <- NA
-baby$number[baby$number == "9"] <- NA  
-
+ 
 
 #Combine values which are the same
 baby$mrace[c((baby$mrace == 0) | (baby$mrace == 1) | (baby$mrace == 2) | (baby$mrace == 3) | (baby$mrace == 4))] <- 5
-baby$ded[baby$ded == 7] <- 6
+baby$drace[c((baby$drace == 0) | (baby$drace == 1) | (baby$drace == 2) | (baby$drace == 3) | (baby$drace == 4))] <- 5
+baby$med[baby$med == 7] <- 6
+baby$med[baby$med == 7] <- 6
 
 #impute for missing values
 #find na value
