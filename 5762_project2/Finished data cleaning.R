@@ -16,17 +16,22 @@ colnames(baby)[11] <- "med"
 colnames(baby)[12] <- "mht" 
 colnames(baby)[13] <- "mwt"
 
-
+#Convert variables to factors
+baby$id<-as.factor(baby$id)
+baby$pluralty<-as.factor(baby$pluralty)
+baby$outcome<-as.factor(baby$outcome)
+baby$date<-as.factor(baby$date)
+baby$gestation<-as.numeric(baby$gestation)
+baby$sex<-as.factor(baby$sex)
+baby$parity<-as.factor(baby$parity)
 
 #Remove columns that don't show useful information/are all the same
 baby <- baby[-grep('pluralty', colnames(baby))] 
 baby <- baby[-grep('outcome', colnames(baby))] 
 baby <- baby[-grep('sex', colnames(baby))]
 
-
 #Convert dates to actual date format
 baby$date <- as.Date((date-1096), origin = "1961-01-01")
-
 
 #Replace all unknowns with NA as per descriptor readme values
 baby$gestation[baby$gestation == "999"] <- NA
