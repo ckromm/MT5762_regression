@@ -30,7 +30,7 @@ colnames(baby)[7] <- "bwt"
 colnames(baby)[9] <- "mrace"
 colnames(baby)[10] <- "mage"
 colnames(baby)[11] <- "med"
-colnames(baby)[12] <- "mht" 
+colnames(baby)[12] <- "mht"
 colnames(baby)[13] <- "mwt"
 
 #Replace all unknowns with NA as per descriptor readme values
@@ -49,9 +49,9 @@ baby$marital[baby$marital == "0"] <- NA
 baby$inc[baby$inc == "98"] <- NA
 baby$smoke[baby$smoke == "9"] <- NA
 baby$time[baby$time == "99"] <- NA
-baby$time[baby$time == "98"] <- NA  
+baby$time[baby$time == "98"] <- NA
 baby$number[baby$number == "98"] <- NA
-baby$number[baby$number == "9"] <- NA  
+baby$number[baby$number == "9"] <- NA
 
 #check data types
 str(baby)
@@ -75,8 +75,8 @@ baby$number <- as.factor(as.character(baby$number))
 
 
 #Remove columns that don't show useful information/are all the same
-baby <- baby[-grep('pluralty', colnames(baby))] 
-baby <- baby[-grep('outcome', colnames(baby))] 
+baby <- baby[-grep('pluralty', colnames(baby))]
+baby <- baby[-grep('outcome', colnames(baby))]
 baby <- baby[-grep('sex', colnames(baby))]
 
 #Convert dates to actual date format
@@ -98,9 +98,9 @@ baby$marital[baby$marital == "0"] <- NA
 baby$inc[baby$inc == "98"] <- NA
 baby$smoke[baby$smoke == "9"] <- NA
 baby$time[baby$time == "99"] <- NA
-baby$time[baby$time == "98"] <- NA  
+baby$time[baby$time == "98"] <- NA
 baby$number[baby$number == "98"] <- NA
-baby$number[baby$number == "9"] <- NA  
+baby$number[baby$number == "9"] <- NA
 
 
 #Combine values which are the same
@@ -118,16 +118,16 @@ for(z in 1: ncol(impute_dat)){
   type <- class(u)
   if(type == "numeric"){
     u[which(is.na(u))] = mean(u, na.rm = T)
-    
+
   } else{
     u[which(is.na(u))] <- which.max(table(u))
 
   }
-  
+
   impute_dat[ , z] <- u
-  
-  
-  
+
+
+
 }
 
 #check for na values.
@@ -145,31 +145,28 @@ any(is.na(baby))
 ############################
 #get a random number so my random number generator is deterministic.
 set.seed(095)
-  
+
 #The test set baby weights.
 test_set <- as.data.frame(sample(unique(baby[, 1]) , round((length(baby[, 1])*0.2))))
 colnames(test_set) <- "id"
-  
+
 #TRAINING
 #get training dataset
 training_set<-as.data.frame(unique(baby[, 1])[which(is.na(match(unique(baby[, 1]), test_set[, 1])))])
 colnames(training_set) <- "id"
-  
+
 #check it worked.
 nrow(training_set) + nrow(test_set) == length(unique(baby[, 1]))
-  
+
 #Analysis data
 schooling <- semi_join(baby, training_set, by = "id")
-  
-#save test data for after the model is built. 
+
+#save test data for after the model is built.
 test_data <- semi_join(baby, test_set, by = "id")
-  
+
 #check no child left behind.
 nrow(test_data) + nrow(training_set) == nrow(baby)
-  
+
   return(list(test = test_data, train = schooling))
-  
+
 }
-
-
-
