@@ -8,8 +8,22 @@ get_data <- function(name) {
 
 baby <- read.delim(name, sep="", header=TRUE)
 
-attach(baby)  
 
+#check for na values
+any(which(is.na(baby)))
+#There are no na value
+
+#check for missing values
+complete_c <- complete.cases(baby)
+complete_records <- baby[complete_c,]
+incomplete_records <- baby[!complete_c,]
+
+#check is the row match
+nrow(complete_records) + nrow(incomplete_records)==nrow(baby)
+#There are no incomplete (missing implicity) values
+
+#see names
+names(baby)
 
 #Change names to be more descriptive
 colnames(baby)[7] <- "bwt"
@@ -19,14 +33,17 @@ colnames(baby)[11] <- "med"
 colnames(baby)[12] <- "mht" 
 colnames(baby)[13] <- "mwt"
 
+#check data types
+str(baby)
+
 #Convert variables to factors
-baby$id<-as.factor(baby$id)
-baby$pluralty<-as.factor(baby$pluralty)
-baby$outcome<-as.factor(baby$outcome)
-baby$date<-as.factor(baby$date)
-baby$gestation<-as.numeric(baby$gestation)
-baby$sex<-as.factor(baby$sex)
-baby$parity<-as.factor(baby$parity)
+baby$id <- as.factor(baby$id)
+baby$pluralty <- as.factor(baby$pluralty)
+baby$outcome <- as.factor(baby$outcome)
+baby$date <- as.factor(baby$date)
+baby$gestation <- as.numeric(baby$gestation)
+baby$sex <- as.factor(baby$sex)
+baby$parity <- as.factor(baby$parity)
 
 #Remove columns that don't show useful information/are all the same
 baby <- baby[-grep('pluralty', colnames(baby))] 
@@ -58,46 +75,41 @@ baby$number[baby$number == "9"] <- NA
 
 
 #Combine values which are the same
-baby$mrace[baby$mrace == 0] <- 5
-baby$mrace[baby$mrace == 1] <- 5
-baby$mrace[baby$mrace == 2] <- 5
-baby$mrace[baby$mrace == 3] <- 5
-baby$mrace[baby$mrace == 4] <- 5
-baby$med[baby$med == 7] <- 6
-baby$drace[baby$drace == 0] <- 5
-baby$drace[baby$drace == 1] <- 5
-baby$drace[baby$drace == 2] <- 5
-baby$drace[baby$drace == 3] <- 5
-baby$drace[baby$drace == 4] <- 5
+baby$mrace[c((baby$mrace == 0) | (baby$mrace == 1) | (baby$mrace == 2) | (baby$mrace == 3) | (baby$mrace == 4))] <- 5
 baby$ded[baby$ded == 7] <- 6
 
+#impute for missing values
+#find na value
+find_na <- apply(baby, 2, is.na)
+impute <- names(which(apply(find_na, 2, any)))
 
-  ############################
-  #Test Set
-  ############################
-  #get a random number so my random number generator is deterministic.
-  set.seed(095)
+
+############################
+#Test Set
+############################
+#get a random number so my random number generator is deterministic.
+set.seed(095)
   
-  #The test set baby weights.
-  test_set <- as.data.frame(sample(unique(baby[, 1]) , round((length(baby[, 1])*0.2))))
-  colnames(test_set) <- "id"
+#The test set baby weights.
+test_set <- as.data.frame(sample(unique(baby[, 1]) , round((length(baby[, 1])*0.2))))
+colnames(test_set) <- "id"
   
-  #TRAINING
-  #get training dataset
-  training_set<-as.data.frame(unique(baby[, 1])[which(is.na(match(unique(baby[, 1]), test_set[, 1])))])
-  colnames(training_set) <- "id"
+#TRAINING
+#get training dataset
+training_set<-as.data.frame(unique(baby[, 1])[which(is.na(match(unique(baby[, 1]), test_set[, 1])))])
+colnames(training_set) <- "id"
   
-  #check it worked.
-  nrow(training_set) + nrow(test_set) == length(unique(baby[, 1]))
+#check it worked.
+nrow(training_set) + nrow(test_set) == length(unique(baby[, 1]))
   
-  #Analysis data
-  schooling <- semi_join(baby, training_set, by = "id")
+#Analysis data
+schooling <- semi_join(baby, training_set, by = "id")
   
-  #save test data for after the model is built. 
-  test_data <- semi_join(baby, test_set, by = "id")
+#save test data for after the model is built. 
+test_data <- semi_join(baby, test_set, by = "id")
   
-  #check no child left behind.
-  nrow(test_data) + nrow(training_set) == nrow(baby)
+#check no child left behind.
+nrow(test_data) + nrow(training_set) == nrow(baby)
   
   return(list(test = test_data, train = schooling))
   
