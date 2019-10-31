@@ -109,7 +109,7 @@ baby$number[baby$number == "9"] <- NA
 baby$mrace[c((baby$mrace == 0) | (baby$mrace == 1) | (baby$mrace == 2) | (baby$mrace == 3) | (baby$mrace == 4))] <- 5
 baby$drace[c((baby$drace == 0) | (baby$drace == 1) | (baby$drace == 2) | (baby$drace == 3) | (baby$drace == 4))] <- 5
 baby$med[baby$med == 7] <- 6
-baby$med[baby$med == 7] <- 6
+baby$ded[baby$ded == 7] <- 6
 
 #impute for missing values
 #find na value
