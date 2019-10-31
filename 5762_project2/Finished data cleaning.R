@@ -81,7 +81,7 @@ baby <- baby[-grep('sex', colnames(baby))]
 
 #Convert dates to actual date format
 baby$date <- as.Date((baby$date-1096), origin = "1961-01-01")
-<<<<<<< HEAD
+
 
 #Replace all unknowns with NA as per descriptor readme values
 baby$gestation[baby$gestation == "999"] <- NA
@@ -103,9 +103,7 @@ baby$time[baby$time == "98"] <- NA
 baby$number[baby$number == "98"] <- NA
 baby$number[baby$number == "9"] <- NA
 
-=======
- 
->>>>>>> d0e3cfe1aab3631f70e1cd3e6d7e10c416150ca4
+
 
 #Combine values which are the same
 baby$mrace[c((baby$mrace == 0) | (baby$mrace == 1) | (baby$mrace == 2) | (baby$mrace == 3) | (baby$mrace == 4))] <- 5
