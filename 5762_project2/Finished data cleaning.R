@@ -92,7 +92,7 @@ get_data <- function(name) {
   #find na value
   find_na <- apply(baby, 2, is.na)
   impute <- names(which(apply(find_na, 2, any)))
-  impute_dat <- baby %>% select(impute)
+  impute_dat <- baby[c(impute)]
   
   for(z in 1: ncol(impute_dat)){
     
