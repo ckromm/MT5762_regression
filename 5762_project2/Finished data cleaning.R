@@ -94,20 +94,56 @@ get_data <- function(name) {
   impute <- names(which(apply(find_na, 2, any)))
   impute_dat <- baby[c(impute)]
   
+  df_ed_racem<-as.data.frame(cbind(rownames(table(baby$mrace, baby$med)),
+                            colnames(table(baby$mrace, baby$med))[apply(table(baby$mrace, baby$med), 1,which.max)]))
+  colnames(df_ed_racem)<-c("race", "edu")
+  
+  df_ed_raced<-as.data.frame(cbind(rownames(table(baby$drace, baby$ded)),
+                                   colnames(table(baby$drace, baby$ded))[apply(table(baby$drace, baby$ded), 1,which.max)]))
+  colnames(df_ed_raced)<-c("race", "edu")
+  
   for(z in 1: ncol(impute_dat)){
-    
     u <- impute_dat[ , z ]
     type <- class(u)
     if(type == "numeric" | type == "integer"){
       #impute the mean
       u[which(is.na(u))] = mean(u, na.rm = T)
       
-    } else{
+    }  else{
+           if(z == 7){
+             #drace
+             
+             #grab educartion at na
+             edu <- impute_dat[which(is.na(u)) , "ded" ]
+             for(uu in 1:length(edu)){
+               edui <- edu[uu]
+               #get race value for edu
+               rv <- sample( df_ed_raced$race[which(!is.na(match(df_ed_raced$edu, edui)))], 1)
+               u[which(is.na(u)) & which(impute_dat$ded==edu) ] <- rv 
+             }
+             
+           }else{
+             if(z == 2){
+               #mrace
+               
+               #grab educartion at na
+               edu <- impute_dat[which(is.na(u)) , "med" ]
+               for(uu in 1:length(edu)){
+                 edui <- edu[uu]
+                 #get race value for edu
+                 rv <- sample( df_ed_racem$race[which(!is.na(match(df_ed_racem$edu, edui)))], 1)
+                 #df_ed_racem$race[which(df_ed_racem$edu==edui)]
+                 u[which(is.na(u)) & which(impute_dat$med==edu) ] <- rv 
+               }
+               }
+               
+             else{
+        #impute the mode
+        u[which(is.na(u))] <- sample(as.factor(colnames(t(table(u)[which(table(u)==max(table(u)))]))), 1)
+        
+      }}}
       
-      #impute the mode
-      u[which(is.na(u))] <- sample(as.factor(colnames(t(table(u)[which(table(u)==max(table(u)))]))), 1)
-      
-    }
+    
     
     impute_dat[ , z] <- u
     
