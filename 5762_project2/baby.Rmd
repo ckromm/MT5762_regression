@@ -1,0 +1,329 @@
+---
+title: "Untitled"
+output:
+  html_document:
+    fig_caption: yes
+    number_sections: yes
+    self_contained: yes
+    theme: flatly
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+options(width = 400)
+```
+
+<style type="text/css">
+div.main-container {
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+pre {
+  overflow-x: auto;
+}
+pre code {
+  word-wrap: normal;
+  white-space: pre;
+}
+</style>
+
+```{r, message=FALSE}
+library(tidyverse)
+library(lubridate)
+library(mice)
+library(ggplot2)
+library(tableone)
+library(boot)
+library(caret)
+```
+
+# Data processing
+
+## load data
+```{r}
+baby = read.table("babies23.data", header = T)
+```
+
+## coding data based on metadata
+```{r}
+baby = baby %>% 
+  mutate(pluralty = ifelse(pluralty == 5, "Single Fetus", "Other"),
+         date = ymd("1961-01-01") + days(date - 1096),
+         sex = recode(as.factor(sex), '1'="male", '2'="female", .default = NA_character_),
+         gestation = ifelse(gestation==999, NA, gestation),
+         birthwt = ifelse(wt==999, NA, wt),
+         parity = ifelse(parity==99, NA, parity),
+         race = ifelse(race >= 0 & race <= 5, 0, race),
+         race = recode(as.factor(race),
+                       "0"="white", "6"="mex", "7"="black",'8'="asian",'9'="mixed", .default = NA_character_),
+         age = ifelse(age == 99, NA, age),
+         ed = ifelse(ed==6|ed==7, 6, ed),
+         ed = recode(as.factor(ed),
+                     '0'="less than 8th grade",'1'="8th -12th grade",'2'="HS graduate",'3'="HS + trade",'4'="HS + some colledge",'5'="colledge graduate", '6'='trade school', .default = NA_character_),
+         ht = ifelse(ht == 99, NA, ht),
+         wt = ifelse(wt.1 == 999, NA, wt.1),
+         drace = ifelse(drace >= 0 & drace <= 5, 0, drace),
+         drace = recode(as.factor(drace),
+                       "0"="white", "6"="mex", "7"="black",'8'="asian",'9'="mixed", .default = NA_character_),
+         dage = ifelse(dage == 99, NA, dage),
+         ded = ifelse(ded==6|ded==7, 6, ded),
+         ded = recode(as.factor(ded),
+                     '0'="less than 8th grade",'1'="8th -12th grade",'2'="HS graduate",'3'="HS + trade",'4'="HS + some colledge",'5'="colledge graduate", '6'='trade school', .default = NA_character_),
+         dht = ifelse(dht == 99, NA, dht),
+         dwt = ifelse(dwt == 999, NA, dwt),
+         marital = recode(as.factor(marital),
+                          '1'="married",'2'="legally seperated",'3'="divorced",'4'="widowed",'5'="never married",.default = NA_character_),
+         inc = recode(as.factor(inc),
+                      '0'='under 2500','1'='2500-4999','2'='5000-7499','3'='7500-9999','4'='10000-12499','5'='12500-14999','6'='15000-17499','7'='17500-19999', '8'= '20000-22499','9'='22500+', .default = NA_character_),
+         smoke = recode(as.factor(smoke),
+                        '0'='never','1'='smokes now','2'='until current pregnancy','3'='once did, not now', .default = NA_character_),
+         time = recode(as.factor(time),
+                       '0'='never','1'='smokes now','2'='during current preg','3'='within 1 yr','4'='1 to 2 year','5'='2 to 3 year','6'='3 to 4 year', '7'='5 to 9 year','8'='10+ years', .default = NA_character_),
+         number = recode(as.factor(number),
+                         '0'='never', '1'='1-4','2'='5-9', '3'='10-14', '4'='15-19', '5'='20-29', '6'='30-39', '7'='40-60', '8'='60+', .default = NA_character_)
+  ) %>% select(-wt.1)
+vars = names(baby)[2:ncol(baby)]
+tableone = CreateTableOne(vars = vars, data=baby)
+print(tableone, nonnormal = vars, showAllLevels=T, missing=T, minMax = T)
+```
+
+Here is a table of data description. The table shows N (%) for categorical variables and median [range] for continuous variables. We can see that the data includes 1236 records. All infants are single fetus male. The majority race of mother and father is White race. More than 80% of mothers and fathers' education levels are at least high school graduate. 44.8% mothers have never smoked, 39.6% mothers are still smoking when giving birth. 
+
+## simplify some variables and remove some meanless variables
+
+```{r}
+baby = baby %>% 
+  mutate(
+    inc = as.numeric(inc),
+    number = recode(as.numeric(number),
+                    `1`=0L, `2`=2L,`3`=7L, `4`=12L, `5`=17L, `6`=24L, `7`=34L, `8`=50L, `9`=60L, .default = NA_integer_),
+    month = as.factor(month(date)) # birth month 
+  ) %>% 
+  select(-pluralty, -outcome, -sex, -date, -time)
+```
+
+## deal with missing data
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+baby.imp = baby %>% select(-id, -birthwt)
+baby.imp = mice(baby.imp, seed = 12345)
+baby = cbind(baby %>% select(id, birthwt), complete(baby.imp))
+```
+
+In order to mitigate the influence of missing information, we use multiple imputation with chained equation method to retain all available information, reduce potential bias, and improve efficiency in parameter estimation. Information of outcome is not used during the imputation process to avoid data leaking.
+
+
+## split data to train and validation
+
+```{r}
+idx = sample(c(1:nrow(baby)), floor(nrow(baby)*0.8), replace = F)
+train = baby[idx,]
+validation = baby[-idx,]
+```
+
+
+## distribution of birth weight
+
+```{r}
+qqnorm(train$birthwt); qqline(train$birthwt, col = 2)
+c("mean"=mean(train$birthwt), 'median'=median(train$birthwt))
+```
+
+There are light tails with both light birth weights and high birth weights. However, it doesn't bias the mean too much from the median so we don't need to transform the birth weights.
+
+## check outliers and treat
+
+```{r}
+ggplot(train, aes(x=gestation, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+cooksd = cooks.distance(lm(birthwt~gestation, data = train))
+train$gestation[which(cooksd > qchisq(0.01, 2)/2)] = NA
+```
+
+```{r}
+ggplot(train, aes(x=age, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+ggplot(train, aes(x=wt, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+ggplot(train, aes(x=ht, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+cooksd = cooks.distance(lm(birthwt~ht, data = train))
+train$ht[which(cooksd > qchisq(0.01, 2)/2)] = NA
+```
+
+```{r}
+ggplot(train, aes(x=dage, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+ggplot(train, aes(x=dwt, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+ggplot(train, aes(x=dht, y=birthwt)) + 
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+ggplot(train, aes(x=inc, y=birthwt)) +
+  geom_point()+
+  geom_smooth(method="loess")
+```
+
+```{r}
+ggplot(train, aes(x=race, y=birthwt, fill=race)) +
+  geom_violin(trim=FALSE) + geom_boxplot(width=0.1)
+```
+
+```{r}
+ggplot(train, aes(x=drace, y=birthwt, fill=drace)) +
+  geom_violin(trim=FALSE) + geom_boxplot(width=0.1)
+```
+
+```{r}
+ggplot(train, aes(x=ed, y=birthwt, fill=ed)) +
+  geom_violin(trim=FALSE) + geom_boxplot(width=0.1)
+```
+
+```{r}
+ggplot(train, aes(x=ded, y=birthwt, fill=ded)) +
+  geom_violin(trim=FALSE) + geom_boxplot(width=0.1)
+```
+
+```{r}
+ggplot(train, aes(x=marital, y=birthwt, fill=marital)) +
+  geom_violin(trim=FALSE) + geom_boxplot(width=0.1)
+```
+
+```{r}
+ggplot(train, aes(x=smoke, y=birthwt, fill=smoke)) +
+  geom_violin(trim=FALSE) + geom_boxplot(width=0.1)
+
+```
+
+```{r, message=FALSE, warning=FALSE, results='hide'}
+train.imp = train %>% select(-id, -birthwt)
+train.imp = mice(train.imp, seed = 12345)
+train = cbind(train %>% select(id, birthwt), complete(train.imp))
+```
+
+By visualizing the relationship between the birth weight and the continuous predictors, we could find obvious outliers in gestation and mother's height. The outliers are detected by cook's distance measure and replaced with missing values. The missing values are imputated by multiple imputation with chained equation method.
+
+# Modeling
+
+## basic model
+
+```{r}
+fit = lm(birthwt ~ gestation + parity + marital * inc + smoke * number + month + wt + ht + race + age + ed + dwt + dht + drace + dage + ded , train)
+```
+
+A first order regression model based on all predictor variables was fitted to serve as a starting point. We consider the interaction between marital and income in the model since the household income is often related to the number of workers in a family. The interaction between smoke and number of cigs per day is also considered in the model.
+
+## variable selection mesured by AIC
+
+```{r}
+fit2 = MASS::stepAIC(fit, trace = FALSE)
+fit2$anova
+```
+
+## final model 
+
+```{r}
+fit3 = lm(birthwt ~ gestation + parity + smoke + number + wt + ht + dwt + drace, train)
+summary(fit3)
+anova(fit3)
+```
+
+Based on the analysis of variance, all predictors except number of cigs per day in the final model are significant. 
+
+Holding all other predictors fixed, mother's weight increases an additional pound leads to an increase in birth weight by approximately 0.092 ounce, on average. Longer length of gestation, more parity, higher mother's height, and higher father's weight all have a positive average effect on birth weight. Black, asian, and mixed race fathers have a negative average effect on birth weight, comparing to white or mex fathers. If a mother is smoking during birth, the birth weight will be lower than a mother who has never smoked, assuming all other predictors are the same. Increasing number of cigs smoked per day has a negative effect on birth weight. 
+
+## bootstrap parameter
+
+```{r}
+findPara <- function(dat, idx) {
+    fit <- lm(birthwt ~ gestation + parity + smoke + number + wt + ht + dwt + drace, subset=idx, data=dat)
+    coef(fit)
+}
+bootReg <- boot(train, statistic=findPara, R=1000)
+bootPara = data.frame(
+  Estimate = bootReg$t0,
+  Low = c(boot.ci(bootReg, conf=0.95, type="bca", index=1)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=2)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=3)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=4)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=5)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=6)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=7)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=8)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=9)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=10)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=11)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=12)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=13)$bca[4],
+          boot.ci(bootReg, conf=0.95, type="bca", index=14)$bca[4]),
+  Up = c(boot.ci(bootReg, conf=0.95, type="bca", index=1)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=2)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=3)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=4)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=5)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=6)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=7)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=8)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=9)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=10)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=11)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=12)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=13)$bca[5],
+         boot.ci(bootReg, conf=0.95, type="bca", index=14)$bca[5])
+)
+print(bootPara)
+```
+
+## validation
+
+5-fold cross validation
+
+```{r}
+data_ctrl <- trainControl(method = "cv", number = 5)
+lm = train(birthwt ~ gestation + parity + smoke + number + wt + ht + dwt + drace,   
+               data = train,                        
+               trControl = data_ctrl,
+               method = "lm",
+               metric = "RMSE")
+lm
+```
+
+The MSE of 5-fold cross validation is `r lm$results$RMSE^2`.
+
+Prediction on the validation data
+
+```{r}
+pred = predict(fit3, newdata = validation)
+MSEVal = mean((validation$birthwt - pred)^2)
+```
+
+The MSE of prediction on the validation dataset is `r MSEVal`.
