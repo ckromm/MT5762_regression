@@ -136,12 +136,12 @@ fitResid <- resid(fit3)
 plot(fitted(fit3), fitResid, ylab = "Residuals", xlab = "Fitted values")
 # The residuals "bounce randomly" around the 0 line - the assumption that the relationship is linear is reasonable.
 # The residuals roughly form a "horizontal band" around the 0 line - the variances of the error terms are ~equal. 
-#Though might have an issue since consentrated in the middle.
+# Though might have an issue since concentrated in the middle.
 # No one residual "stands out"  a lot from the basic random pattern of residuals - no  big outliers.
 ncvTest(fit3)
 # p-value of 0.19338 - we're okay here though
 bptest(fit3)
-# p-value of 0.0001097 - indicates presense of heteroskedasticity (studentize the original BP test)
+# p-value of 0.0001097 - indicates presence of heteroskedasticity (studentize the original BP test)
 # compare to White standard errors to see if they're inflated 
 summary(fit3)
 coeftest(fit3, vcov = vcovHC(fit3, "HC1"))
