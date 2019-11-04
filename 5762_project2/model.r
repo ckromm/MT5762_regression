@@ -272,3 +272,7 @@ ggpairs(numericVars)
 # Correlation doesn't seem to be an issue but check VIF
 vif(fit3)
 # Really small VIF values - none of them are even close to 10 => ok
+
+source("spiffy_bootstrap_fun.R")
+
+bootstrap <- spiffy_boots(fit3Data , 1000, "bwt")
