@@ -55,6 +55,19 @@ df_res %>%
   scale_fill_gradient(low="red", high="yellow")+
   theme_classic()
 
+high_corr <- df_res %>% filter(cramV > 0.7)
+high_corr
+
+#Remove (from train and test) columns due to high correlation 
+data$train <- data$train[-grep('drace', colnames(data$train))]
+data$train <- data$train[-grep('time', colnames(data$train))]
+data$test <- data$test[-grep('drace', colnames(data$test))]
+data$test <- data$test[-grep('time', colnames(data$test))]
+head(data$train)
+
+fullModel <- lm( bwt ~ ., data = data$train)
+step(fullModel)
+ 
 # -----------------------------------------------------------------------------
 
 unique(data$train)
@@ -75,7 +88,6 @@ model <- train(bwt ~ gestation + parity + marital + inc + smoke + number + mwt +
 
 
 rcorr(data$train)
-
 
 
 numericVars <- data$train %>% select_if(is.numeric)
