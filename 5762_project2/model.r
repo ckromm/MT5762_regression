@@ -5,10 +5,11 @@ library("car")
 library("Hmisc")
 library("polycor")
 library("lsr")
+library("tidyverse")
 # -----------------------------------------------------------------------------
 calculate_RMSE <- function(model, test) {
   pred <- predict(model, test)
-  return(postResample(pred = pred, obs = data$test[,"bwt"]))
+  return(postResample(pred = pred, obs = test[,"bwt"]))
 }
 
 
@@ -29,8 +30,6 @@ rmse <- calculate_RMSE(model, data$test)
 print(rmse)
 # -----------------------------------------------------------------------------
 # CORRELATION
-library(tidyverse)
-library(lsr)
 
 # function to get chi square p value and Cramers V
 f = function(x,y) {
@@ -57,8 +56,9 @@ df_res %>%
 
 high_corr <- df_res %>% filter(cramV > 0.7)
 high_corr
-
-#Remove (from train and test) columns due to high correlation 
+# -----------------------------------------------------------------------
+# Model
+# Remove (from train and test) columns due to high correlation 
 data$train <- data$train[-grep('drace', colnames(data$train))]
 data$train <- data$train[-grep('time', colnames(data$train))]
 data$test <- data$test[-grep('drace', colnames(data$test))]
@@ -66,8 +66,22 @@ data$test <- data$test[-grep('time', colnames(data$test))]
 head(data$train)
 
 fullModel <- lm( bwt ~ ., data = data$train)
-step(fullModel)
- 
+summary(fullModel)
+
+fit3 <- step(fullModel)
+summary(fit3)
+
+train.control <- trainControl(method = "cv", number = 5)
+model_1 <- train(bwt ~ . , data = data$train, method = "lm", trControl = train.control)
+summary(model_1$finalModel)
+rmse_1 <- calculate_RMSE(model_1, data$test)
+rmse_1
+
+fit3 <- step(lm(model_1, data=data$train))
+summary(fit3)
+rmse_2 <- calculate_RMSE(fit3, data$test)
+rmse_2
+
 # -----------------------------------------------------------------------------
 
 unique(data$train)
@@ -247,10 +261,10 @@ coeftest(fit3, vcov = vcovHC(fit3, "HC1"))
 par(mfrow=c(2,2))
 plot(fit3)
 
-head(train)
+head(data$train)
 
 # Collinearity
-fit3Data <- train[,-c(1,2,6,7,8,11,12,13,15,16,19)]
+fit3Data <- data$train[,-c(5,6,9,10,11,13,14)]
 head(fit3Data)
 
 numericVars <- fit3Data %>% select_if(is.numeric)
