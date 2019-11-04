@@ -6,6 +6,10 @@ library("Hmisc")
 library("polycor")
 library("lsr")
 library("tidyverse")
+library("leaps")
+library("SignifReg")
+library("MASS")
+
 # -----------------------------------------------------------------------------
 calculate_RMSE <- function(model, test) {
   pred <- predict(model, test)
@@ -65,11 +69,12 @@ data$test <- data$test[-grep('drace', colnames(data$test))]
 data$test <- data$test[-grep('time', colnames(data$test))]
 head(data$train)
 
-fullModel <- lm( bwt ~ ., data = data$train)
+fullModel <- lm( data$train$bwt ~ ., data = data$train)
 summary(fullModel)
+nullModel <- lm(bwt~ 1, data = data$train)
 
-fit3 <- step(fullModel)
-summary(fit3)
+#fit3 <- step(fullModel)
+#summary(fit3)
 
 train.control <- trainControl(method = "cv", number = 5)
 model_1 <- train(bwt ~ . , data = data$train, method = "lm", trControl = train.control)
@@ -82,6 +87,24 @@ summary(fit3)
 rmse_2 <- calculate_RMSE(fit3, data$test)
 rmse_2
 
+# Changin order of columns 
+head(data$train)
+data_train_model3 <- data$train[ ,c("bwt", "gestation", "parity", "mrace", "mage", "med", "mht", "mwt", "dage", "ded", "dht", 
+                              "dwt", "marital", "inc", "smoke", "number")]
+head(data_train_model3)
+
+#stepwise based on BIC
+model_3 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
+                   k=log(nrow(data$train)))
+# the below is AIC and it's just a check to make sure that the above is actually doing it based on BIC 
+model_4 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
+                k=2)
+summary(model_3)
+summary(model_4)
+
+#stepwise based on adj. R-squared 
+#model3 <- drop1SignifReg(fullModel, data$train , criterion = "r-adj")
+# model3 <- leaps(x = data_train_model3[,2:16], y=data_train_model3[,1], names=names(data_train_model3[,2:16]), method="adjr2")
 # -----------------------------------------------------------------------------
 
 unique(data$train)
@@ -233,7 +256,7 @@ library(GGally)
 library(car)
 library(lmtest)
 library(sandwich)
-
+ diag <-  function(fit3){
 # setwd("5762_project2");  // I need to run that
 # Normality
 qqnorm(resid(fit3))
@@ -271,6 +294,7 @@ numericVars <- fit3Data %>% select_if(is.numeric)
 ggpairs(numericVars)
 # Correlation doesn't seem to be an issue but check VIF
 vif(fit3)
+}
 # Really small VIF values - none of them are even close to 10 => ok
 
 source("spiffy_bootstrap_fun.R")
