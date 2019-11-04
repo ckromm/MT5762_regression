@@ -8,7 +8,6 @@ get_data <- function(name) {
 
   baby <- read.delim(name, sep="", header=TRUE)
 
-
   #check for na values
   any(which(is.na(baby)))
   #There are no na value
@@ -57,7 +56,7 @@ get_data <- function(name) {
   baby$mrace[c((baby$mrace == 0) | (baby$mrace == 1) | (baby$mrace == 2) | (baby$mrace == 3) | (baby$mrace == 4))] <- 5
   baby$drace[c((baby$drace == 0) | (baby$drace == 1) | (baby$drace == 2) | (baby$drace == 3) | (baby$drace == 4))] <- 5
   baby$med[baby$med == 7] <- 6
-  baby$med[baby$med == 7] <- 6
+  baby$ded[baby$ded == 7] <- 6
 
   #check data types
   str(baby)
@@ -84,6 +83,7 @@ get_data <- function(name) {
   baby <- baby[-grep('pluralty', colnames(baby))]
   baby <- baby[-grep('outcome', colnames(baby))]
   baby <- baby[-grep('sex', colnames(baby))]
+  
 
   #Convert dates to actual date format
   baby$date <- as.Date((baby$date-1096), origin = "1961-01-01")
@@ -110,46 +110,11 @@ get_data <- function(name) {
       u[which(is.na(u))] = mean(u, na.rm = T)
 
     }  else{
-           # if(z == 7){
-           #   #drace
-           #
-           #   #grab educartion at na
-           #   edu <- impute_dat[which(is.na(u)) , "ded" ]
-           #   for(uu in 1:length(edu)){
-           #     edui <- edu[uu]
-           #     #get race value for edu
-           #     rv <- as.factor(sample( df_ed_raced$race[which(!is.na(match(df_ed_raced$edu, edui)))], 1))
-           #     u[which(is.na(u)) & which(impute_dat$ded==edu) ] <- rv
-           #   }
-           #
-           # }else{
-           #   if(z == 2){
-           #     #mrace
-           #
-           #     #grab educartion at na
-           #     edu <- impute_dat[which(is.na(u)) , "med" ]
-           #     for(uu in 1:length(edu)){
-           #       edui <- edu[uu]
-           #       #get race value for edu
-           #       rv <- as.factor(sample( df_ed_racem$race[which(!is.na(match(df_ed_racem$edu, edui)))], 1))
-           #       #df_ed_racem$race[which(df_ed_racem$edu==edui)]
-           #       u[which(is.na(u)) & which(impute_dat$med==edu) ] <- rv
-           #     }
-           #     }
-           #
-           #   else{
         #impute the mode
         u[which(is.na(u))] <- sample(as.factor(colnames(t(table(u)[which(table(u)==max(table(u)))]))), 1)
-
-      # }}
     }
 
-
-
     impute_dat[ , z] <- u
-
-
-
   }
 
   #check for na values.
