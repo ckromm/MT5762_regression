@@ -77,6 +77,7 @@ mse_1 <- rmse_1[1] ^ 2
 r2_1 <- rmse_1[2]
 mse_1
 r2_1
+AIC(model_1$finalModel)
 
 # Run the full model stepped
 model_2_full <- train(bwt ~ . , data = data$train, method = "lm", trControl = train.control)
@@ -87,6 +88,7 @@ mse_2 <- rmse_2[1] ^ 2
 r2_2 <- rmse_2[2]
 mse_2
 r2_2
+AIC(model_2)
 
 # Run model 3 stepwise based on BIC
 fullModel <- lm( data$train$bwt ~ ., data = data$train)
@@ -100,6 +102,7 @@ mse_3 <- rmse_3[1] ^ 2
 r2_3 <- rmse_3[2]
 mse_3
 r2_3
+AIC(model_3)
 
 # code to check to make sure that model3 isn't using aic and is doing it based on BIC
 model_4 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward',
