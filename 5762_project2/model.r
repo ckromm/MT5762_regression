@@ -100,7 +100,7 @@ model_3 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = 
 model_4 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
                 k=2)
 summary(model_3)
-summary(model_4)
+summary(model_4) #don't need that one
 
 #stepwise based on adj. R-squared 
 #model3 <- drop1SignifReg(fullModel, data$train , criterion = "r-adj")
@@ -256,13 +256,16 @@ library(GGally)
 library(car)
 library(lmtest)
 library(sandwich)
- diag <-  function(fit3){
+
+# Model - fit3
+#------------------------------------------------------------------------------
+diagnostics <-  function(fit3){
 # setwd("5762_project2");  // I need to run that
 # Normality
 qqnorm(resid(fit3))
 qqline(resid(fit3))
 shapiro.test(resid(fit3))
-# passes the test we can assume normality
+# doesn't pass the test (which happens for a big dataset) but data looks pretty normal can assume normality
 
 # Constant spread
 fitResid <- resid(fit3)
@@ -288,13 +291,51 @@ head(data$train)
 
 # Collinearity
 fit3Data <- data$train[,-c(5,6,9,10,11,13,14)]
-head(fit3Data)
+head()
 
 numericVars <- fit3Data %>% select_if(is.numeric)
 ggpairs(numericVars)
-# Correlation doesn't seem to be an issue but check VIF
+# Correlation doesn't seem to be an issue but check VIF since we only do numeric vars above and ignore factors
 vif(fit3)
 }
+# Really small VIF values - none of them are even close to 10 => ok
+
+# Model - model_3
+#------------------------------------------------------------------------------
+# diagnostics(model_3)
+# Normality
+par(mfrow=c(1,1))
+qqnorm(resid(model_3))
+qqline(resid(model_3))
+shapiro.test(resid(model_3))
+# doesn't pass the test (which happens for a big dataset) but data looks pretty normal can assume normality
+
+# Constant spread
+fitResid <- resid(model_3)
+plot(fitted(model_3), fitResid, ylab = "Residuals", xlab = "Fitted values")
+# The residuals "bounce randomly" around the 0 line - the assumption that the relationship is linear is reasonable.
+# The residuals roughly form a "horizontal band" around the 0 line - the variances of the error terms are ~equal.
+# Though might have an issue since concentrated in the middle.
+# No one residual "stands out"  a lot from the basic random pattern of residuals - no  big outliers.
+ncvTest(model_3)
+# p-value of 0.22043 - we're okay here though
+bptest(model_3)
+# p-value of 0.2346 - indicates no presence of heteroskedasticity (studentize the original BP test)
+
+# Standard plots
+par(mfrow=c(2,2))
+plot(model_3)
+
+head(data$train)
+
+# Collinearity
+model_3Data <- data$train[,-c(3,4,5,6,8,9,10,11,13,14,16)]
+head(model_3Data)
+
+numericVars <- model_3Data %>% select_if(is.numeric)
+ggpairs(numericVars)
+# Correlation doesn't seem to be an issue but check VIF since we only do numeric vars above and ignore factors
+vif(model_3)
 # Really small VIF values - none of them are even close to 10 => ok
 
 source("spiffy_bootstrap_fun.R")
