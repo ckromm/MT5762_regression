@@ -33,7 +33,7 @@ model <- logical_model(data$train)
 rmse <- calculate_RMSE(model, data$test)
 print(rmse)
 # -----------------------------------------------------------------------------
-# CORRELATION
+# CORRELATION TODO add reference
 
 # function to get chi square p value and Cramers V
 f = function(x,y) {
@@ -62,6 +62,7 @@ high_corr <- df_res %>% filter(cramV > 0.7)
 high_corr
 # -----------------------------------------------------------------------
 # Model
+# TODO merge with other removing files
 # Remove (from train and test) columns due to high correlation 
 data$train <- data$train[-grep('drace', colnames(data$train))]
 data$train <- data$train[-grep('time', colnames(data$train))]
@@ -69,42 +70,31 @@ data$test <- data$test[-grep('drace', colnames(data$test))]
 data$test <- data$test[-grep('time', colnames(data$test))]
 head(data$train)
 
-fullModel <- lm( data$train$bwt ~ ., data = data$train)
-summary(fullModel)
-nullModel <- lm(bwt~ 1, data = data$train)
 
-#fit3 <- step(fullModel)
-#summary(fit3)
-
-train.control <- trainControl(method = "cv", number = 5)
-model_1 <- train(bwt ~ . , data = data$train, method = "lm", trControl = train.control)
-summary(model_1$finalModel)
-rmse_1 <- calculate_RMSE(model_1, data$test)
-rmse_1
-
-fit3 <- step(lm(model_1, data=data$train))
-summary(fit3)
-rmse_2 <- calculate_RMSE(fit3, data$test)
+# TODO rename fit3 everywhere else
+model_2_full <- train(bwt ~ . , data = data$train, method = "lm", trControl = train.control)
+model_2 <- step(lm(model_2_full, data=data$train))
+summary(model_2)
+rmse_2 <- calculate_RMSE(model_2, data$test)
 rmse_2
 
-# Changin order of columns 
-head(data$train)
-data_train_model3 <- data$train[ ,c("bwt", "gestation", "parity", "mrace", "mage", "med", "mht", "mwt", "dage", "ded", "dht", 
-                              "dwt", "marital", "inc", "smoke", "number")]
-head(data_train_model3)
-
 #stepwise based on BIC
-model_3 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
+fullModel <- lm( data$train$bwt ~ ., data = data$train)
+nullModel <- lm(bwt~ 1, data = data$train)
+model_3_step <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
                    k=log(nrow(data$train)))
-# the below is AIC and it's just a check to make sure that the above is actually doing it based on BIC 
+model_3 <- train(as.formula(model_3_step), data=data$train, method = "lm", trControl = train.control)
+summary(model_3)
+rmse_3 <- calculate_RMSE(model_test, data$test)
+rmse_3
+
+# TODO make look like test
+# check to make sure that the above is actually doing it based on BIC 
 model_4 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
                 k=2)
 summary(model_3)
 summary(model_4) #don't need that one
 
-#stepwise based on adj. R-squared 
-#model3 <- drop1SignifReg(fullModel, data$train , criterion = "r-adj")
-# model3 <- leaps(x = data_train_model3[,2:16], y=data_train_model3[,1], names=names(data_train_model3[,2:16]), method="adjr2")
 # -----------------------------------------------------------------------------
 
 unique(data$train)
