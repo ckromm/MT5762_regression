@@ -6,34 +6,25 @@ library("Hmisc")
 library("polycor")
 library("lsr")
 library("tidyverse")
-library("leaps")
-library("SignifReg")
 library("MASS")
+library("GGally")
+library("car")
+library("lmtest")
+library("sandwich")
 
-# -----------------------------------------------------------------------------
-calculate_RMSE <- function(model, test) {
-  pred <- predict(model, test)
-  return(postResample(pred = pred, obs = test[,"bwt"]))
+# rmse and r^2 function
+calculate_RMSE <- function(model, test_data) {
+  pred <- predict(model, test_data)
+  return(postResample(pred = pred, obs = test_data[,"bwt"]))
 }
 
-
-logical_model <- function(data) {
-  train.control <- trainControl(method = "cv", number = 5)
-
-  model <- train(bwt ~ smoke + number + gestation + mage + mht + dht + mwt + inc +
-           mht:mwt + inc:mwt , data = data, method = "lm",
-       trControl = train.control)
-
-  return(model)
-}
-
+# load cleaned data
 data <- get_data("babies23.data")
-data$train <- data$train %>% select(-id, -date)
-model <- logical_model(data$train)
-rmse <- calculate_RMSE(model, data$test)
-print(rmse)
-# -----------------------------------------------------------------------------
-# CORRELATION TODO add reference
+# remove id and date, as they were not relevant
+data$train <- data$train %>% dplyr::select(-id, -date)
+# ----------------------------------------------------------------------
+# CORRELATION
+# adapted from https://stackoverflow.com/a/52557631
 
 # function to get chi square p value and Cramers V
 f = function(x,y) {
@@ -58,235 +49,111 @@ df_res %>%
   scale_fill_gradient(low="red", high="yellow")+
   theme_classic()
 
+# filter correlation for greater than 0.7
 high_corr <- df_res %>% filter(cramV > 0.7)
 high_corr
 # -----------------------------------------------------------------------
 # Model
-# TODO merge with other removing files
-# Remove (from train and test) columns due to high correlation 
+
+# Remove (from train and test) columns due to high correlation
 data$train <- data$train[-grep('drace', colnames(data$train))]
 data$train <- data$train[-grep('time', colnames(data$train))]
 data$test <- data$test[-grep('drace', colnames(data$test))]
 data$test <- data$test[-grep('time', colnames(data$test))]
 head(data$train)
 
+# Perform Cross Validation
+train.control <- trainControl(method = "cv", number = 5)
 
-# TODO rename fit3 everywhere else
+# Run the first model, a priori selection
+model_1 <- train(bwt ~ smoke + number + gestation + mage + mht + dht + mwt + inc +
+         mht:mwt + inc:mwt , data = data$train, method = "lm",
+     trControl = train.control)
+summary(model_1)
+rmse_1 <- calculate_RMSE(model, data$test)
+mse_1 <- rmse_1[1] ^ 2
+r2_1 <- rmse_1[2]
+mse_1
+r2_1
+
+# Run the full model stepped
 model_2_full <- train(bwt ~ . , data = data$train, method = "lm", trControl = train.control)
 model_2 <- step(lm(model_2_full, data=data$train))
 summary(model_2)
 rmse_2 <- calculate_RMSE(model_2, data$test)
-rmse_2
+mse_2 <- rmse_2[1] ^ 2
+r2_2 <- rmse_2[2]
+mse_2
+r2_2
 
-#stepwise based on BIC
+# Run model 3 stepwise based on BIC
 fullModel <- lm( data$train$bwt ~ ., data = data$train)
 nullModel <- lm(bwt~ 1, data = data$train)
-model_3_step <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
+model_3_step <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward',
                    k=log(nrow(data$train)))
 model_3 <- train(as.formula(model_3_step), data=data$train, method = "lm", trControl = train.control)
 summary(model_3)
-rmse_3 <- calculate_RMSE(model_test, data$test)
-rmse_3
+rmse_3 <- calculate_RMSE(model_3, data$test)
+mse_3 <- rmse_3[1] ^ 2
+r2_3 <- rmse_3[2]
+mse_3
+r2_3
 
-# TODO make look like test
-# check to make sure that the above is actually doing it based on BIC 
-model_4 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward', 
+# code to check to make sure that model3 isn't using aic and is doing it based on BIC
+model_4 <- step(nullModel, scope=list(lower=nullModel, upper=fullModel), data = data$train, direction='forward',
                 k=2)
-summary(model_3)
-summary(model_4) #don't need that one
-
-# -----------------------------------------------------------------------------
-
-unique(data$train)
-
-aov(data$train[, "bwt"] ~ .,data$train )
-
-corr <- rcorr(as.matrix(data$train), type="pearson")
-str(corr)
-symnum(corr$n, cutpoints = c(0.5, 0.8), symbols = c("+","*" ))
-
-# Does model analysis
-plot(model$finalModel)
-train.control <- trainControl(method = "cv", number = 5)
-
-model <- train(bwt ~ gestation + parity + marital + inc + smoke + number + mwt + mht + mrace + mage + med + dwt +
-           dht + dage + ded , data = data$train, method = "lm",
-     trControl = train.control)
+summary(model_4)
 
 
-rcorr(data$train)
+source("working_bootstrap.R")
 
-
-numericVars <- data$train %>% select_if(is.numeric)
-ggpairs(data$train %>% select(-id))
-
-summary(model$finalModel)
-vif(model$finalModel)
-alias(model$finalModel)
-
-res <- calculate_MSE(model,model$test)
-print(res)
-
-attributes(fit)
-attributes(model$finalModel)
-
-fit2 = MASS::stepAIC(fit, trace = FALSE)
-fit2$anova
-summary(fit2)
-
-
-fit2 = MASS::stepAIC(model$finalModel, trace = FALSE)
-fit2$anova
-summary(fit2)
-any(is.na(train))
-train[is.na(train) >0,]
-
-#==============================================================================
-# Grace's code
-#==============================================================================
-
-install.packages("mice")
-install.packages("tableone")
-library(tidyverse)
-library(lubridate)
-library(mice)
-library(ggplot2)
-library(tableone)
-library(boot)
-library(caret)
-
-baby = read.table("babies23.data", header = T)
-
-baby = baby %>%
-  mutate(pluralty = ifelse(pluralty == 5, "Single Fetus", "Other"),
-         date = ymd("1961-01-01") + days(date - 1096),
-         sex = recode(as.factor(sex), '1'="male", .default = NA_character_),
-         gestation = ifelse(gestation==999, NA, gestation),
-         birthwt = ifelse(wt==999, NA, wt),
-         parity = ifelse(parity==99, NA, parity),
-         race = ifelse(race >= 0 & race <= 5, 0, race),
-         race = recode(as.factor(race),
-                       '0'="white", '6'="mex", '7'="black",'8'="asian",'9'="mixed", .default = NA_character_),
-         age = ifelse(age == 99, NA, age),
-         ed = ifelse(ed==6|ed==7, 6, ed),
-         ed = recode(as.factor(ed),
-                     '0'="less than 8th grade",'1'="8th -12th grade",'2'="HS graduate",'3'="HS + trade",'4'="HS + some colledge",'5'="colledge graduate", '6'='trade school', .default = NA_character_),
-         ht = ifelse(ht == 99, NA, ht),
-         wt = ifelse(wt.1 == 999, NA, wt.1),
-         drace = ifelse(drace >= 0 & drace <= 5, 0, drace),
-         drace = recode(as.factor(drace),
-                        "0"="white", "6"="mex", "7"="black",'8'="asian",'9'="mixed", .default = NA_character_),
-         dage = ifelse(dage == 99, NA, dage),
-         ded = ifelse(ded==6|ded==7, 6, ded),
-         ded = recode(as.factor(ded),
-                      '0'="less than 8th grade",'1'="8th -12th grade",'2'="HS graduate",'3'="HS + trade",'4'="HS + some colledge",'5'="colledge graduate", '6'='trade school', .default = NA_character_),
-         dht = ifelse(dht == 99, NA, dht),
-         dwt = ifelse(dwt == 999, NA, dwt),
-         marital = recode(as.factor(marital),
-                          '1'="married",'2'="legally seperated",'3'="divorced",'4'="widowed",'5'="never married",.default = NA_character_),
-         inc = recode(as.factor(inc),
-                      '0'='under 2500','1'='2500-4999','2'='5000-7499','3'='7500-9999','4'='10000-12499','5'='12500-14999','6'='15000-17499','7'='17500-19999', '8'= '20000-22499','9'='22500+', .default = NA_character_),
-         smoke = recode(as.factor(smoke),
-                        '0'='never','1'='smokes now','2'='until current pregnancy','3'='once did, not now', .default = NA_character_),
-         time = recode(as.factor(time),
-                       '0'='never','1'='smokes now','2'='during current preg','3'='within 1 yr','4'='1 to 2 year','5'='2 to 3 year','6'='3 to 4 year', '7'='5 to 9 year','8'='10+ years', .default = NA_character_),
-         number = recode(as.factor(number),
-                         '0'='never', '1'='1-4','2'='5-9', '3'='10-14', '4'='15-19', '5'='20-29', '6'='30-39', '7'='40-60', '8'='60+', .default = NA_character_)
-  ) %>% select(-wt.1)
-
-head(baby)
-
-vars = names(baby)[2:ncol(baby)]
-tableone = CreateTableOne(vars = vars, data=baby)
-print(tableone, nonnormal = vars, showAllLevels=T, missing=T, minMax = T)
-
-baby = baby %>%
-  mutate(
-    inc = as.numeric(inc),
-    number = recode(as.numeric(number),
-                    `1`=0L, `2`=2L,`3`=7L, `4`=12L, `5`=17L, `6`=24L, `7`=34L, `8`=50L, `9`=60L, .default = NA_integer_),
-    month = as.factor(month(date)) # birth month
-  ) %>%
-  select(-pluralty, -outcome, -sex, -date, -time)
-
-head(baby)
-any(is.na(baby))
-
-idx = sample(c(1:nrow(baby)), floor(nrow(baby)*0.8), replace = F)
-train = baby[idx,]
-validation = baby[-idx,]
-
-qqnorm(train$birthwt); qqline(train$birthwt, col = 2)
-c("mean"=mean(train$birthwt), 'median'=median(train$birthwt))
-
-fit = lm(birthwt ~ gestation + parity + marital * inc + smoke * number + month + wt + ht + race + age + ed + dwt +
-           dht + drace + dage + ded, train)
-summary(fit)
-
-fit2 = MASS::stepAIC(fit, trace = FALSE)
-fit2$anova
-summary(fit2)
-
-model <- train(birthwt ~ gestation + parity + smoke + number + wt + ht + dwt + drace, data = train, method = "lm",
-     trControl = train.control, na.action=na.omit)
-
-res <- calculate_MSE(model,validation)
-print(res)
-
-fit3 = lm(birthwt ~ gestation + parity + smoke + number + wt + ht + dwt + drace, train)
-summary(fit3)
-anova(fit3)
-
+# Run the bootstrap on the best model (model_2)
+bootstrap <- spiffy_boots(data$train, 2000, model_2)
+round(bootstrap, 2)
 #==============================================================================
 # Model diagnostics
 #==============================================================================
 
-install.packages("GGally")
-library(GGally)
-library(car)
-library(lmtest)
-library(sandwich)
-
-# Model - fit3
+# Model - model_2
 #------------------------------------------------------------------------------
-diagnostics <-  function(fit3){
+diagnostics <-  function(model_2){
 # setwd("5762_project2");  // I need to run that
 # Normality
-qqnorm(resid(fit3))
-qqline(resid(fit3))
-shapiro.test(resid(fit3))
+qqnorm(resid(model_2))
+qqline(resid(model_2))
+shapiro.test(resid(model_2))
 # doesn't pass the test (which happens for a big dataset) but data looks pretty normal can assume normality
 
 # Constant spread
-fitResid <- resid(fit3)
-plot(fitted(fit3), fitResid, ylab = "Residuals", xlab = "Fitted values")
+fitResid <- resid(model_2)
+plot(fitted(model_2), fitResid, ylab = "Residuals", xlab = "Fitted values")
 # The residuals "bounce randomly" around the 0 line - the assumption that the relationship is linear is reasonable.
 # The residuals roughly form a "horizontal band" around the 0 line - the variances of the error terms are ~equal.
 # Though might have an issue since concentrated in the middle.
 # No one residual "stands out"  a lot from the basic random pattern of residuals - no  big outliers.
-ncvTest(fit3)
+ncvTest(model_2)
 # p-value of 0.19338 - we're okay here though
-bptest(fit3)
+bptest(model_2)
 # p-value of 0.0001097 - indicates presence of heteroskedasticity (studentize the original BP test)
 # compare to White standard errors to see if they're inflated
-summary(fit3)
-coeftest(fit3, vcov = vcovHC(fit3, "HC1"))
+summary(model_2)
+coeftest(model_2, vcov = vcovHC(model_2, "HC1"))
 # standard errors are pretty similar to robust White se so we are okay
 
 # Standard plots
 par(mfrow=c(2,2))
-plot(fit3)
+plot(model_2)
 
 head(data$train)
 
 # Collinearity
-fit3Data <- data$train[,-c(5,6,9,10,11,13,14)]
+model_2Data <- data$train[,-c(5,6,9,10,11,13,14)]
 head()
 
-numericVars <- fit3Data %>% select_if(is.numeric)
+numericVars <- model_2Data %>% select_if(is.numeric)
 ggpairs(numericVars)
 # Correlation doesn't seem to be an issue but check VIF since we only do numeric vars above and ignore factors
-vif(fit3)
+vif(model_2)
 }
 # Really small VIF values - none of them are even close to 10 => ok
 
@@ -327,7 +194,3 @@ ggpairs(numericVars)
 # Correlation doesn't seem to be an issue but check VIF since we only do numeric vars above and ignore factors
 vif(model_3)
 # Really small VIF values - none of them are even close to 10 => ok
-
-source("spiffy_bootstrap_fun.R")
-
-bootstrap <- spiffy_boots(fit3Data , 1000, "bwt")
