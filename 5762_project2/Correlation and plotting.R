@@ -3,6 +3,7 @@ source("5762_project2/Finished data cleaning.R")
 library(ggplot2)
 library(tidyverse)
 library(arm)
+library(plyr)
 library(dplyr)
 library(ggpubr)
 library(GGally)
@@ -10,8 +11,11 @@ library(GGally)
 data <- get_data("5762_project2/babies23.data")
 training <- data$train
 
-
-
+summary(training)
+count(training, "med")
+nuparity <- as.numeric(training$parity)
+mean(nuparity)
+sd(trainnoNA$bwt)
 #Delete NA value
 trainnoNA <- na.omit(training)
 
@@ -128,3 +132,8 @@ number <- ggerrorplot(trainnoNA, x = "number", y = "bwt",
             add = "jitter", add.params = list(color = "darkgray")) + labs(x = "Number of cigs smoked per day for past and current smokers \n  (0=never, 1=1-4
             2=5-9, 3=10-14, 4=15-19, 5=20-29, 6=30-39, 7=40-60)", y = "Baby's birth weight")
 number
+
+parm <- ggerrorplot(trainnoNA, x = "parity", y = "bwt", 
+                    desc_stat = "mean_sd", color = "darkblue",
+                    add = "jitter", add.params = list(color = "darkgray")) + labs(x = "Total number of previous pregnancies including", y = "Baby's birth weight")
+parm
