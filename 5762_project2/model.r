@@ -52,8 +52,10 @@ df_res %>%
 # filter correlation for greater than 0.7
 high_corr <- df_res %>% filter(cramV > 0.7)
 high_corr
-# -----------------------------------------------------------------------
-# Model
+
+#==============================================================================
+# Models selection
+#==============================================================================
 
 # Remove (from train and test) columns due to high correlation
 data$train <- data$train[-grep('drace', colnames(data$train))]
@@ -110,15 +112,57 @@ source("working_bootstrap.R")
 # Run the bootstrap on the best model (model_2)
 bootstrap <- spiffy_boots(data$train, 2000, model_2)
 round(bootstrap, 2)
+
 #==============================================================================
 # Model diagnostics
 #==============================================================================
+# setwd("5762_project2");  // I need to run that
+# Model - model_1
+#------------------------------------------------------------------------------
+# Normality
+qqnorm(resid(model_1$finalModel))
+qqline(resid(model_1$finalModel))
+shapiro.test(resid(model_1$finalModel))
+# doesn't pass the test (which happens for a big dataset) but data looks pretty normal can assume normality
+
+# Constant spread
+fitResid <- resid(model_1$finalModel)
+plot(fitted(model_1$finalModel), fitResid, ylab = "Residuals", xlab = "Fitted values")
+# The residuals "bounce randomly" around the 0 line - the assumption that the relationship is linear is reasonable.
+# The residuals roughly form a "horizontal band" around the 0 line - the variances of the error terms are ~equal.
+# Though might have an issue since concentrated in the middle.
+# No one residual "stands out"  a lot from the basic random pattern of residuals - no  big outliers.
+ncvTest(model_1$finalModel)
+# p-value of 0.3194 - we're okay here though
+bptest(model_1$finalModel)
+# p-value of 0.0005464 - indicates presence of heteroskedasticity (studentize the original BP test)
+# compare to White standard errors to see if they're inflated
+summary(model_1$finalModel)
+coeftest(model_1$finalModel, vcov = vcovHC(model_1$finalModel, "HC1"))
+# standard errors are pretty similar to robust White se for most variables excluding parity 
+
+# Standard plots
+par(mfrow=c(2,2))
+class(model_1$finalModel)
+plot(model_1$finalModel)
+
+head(data$train)
+
+# Collinearity
+model_1Data <- data$train[,-c(3,4,6,9,10,12,13)]
+head(model_1Data)
+
+numericVars <- model_2Data %>% select_if(is.numeric)
+ggpairs(numericVars)
+# Correlation seem not to be an issue but check VIF since we only do numeric vars above and ignore factors
+vif(model_1$finalModel)
+# Multicollinearity might acrtually be an issue (vif of 25 which is really high)
 
 # Model - model_2
 #------------------------------------------------------------------------------
-diagnostics <-  function(model_2){
-# setwd("5762_project2");  // I need to run that
+
 # Normality
+par(mfrow=c(1,1))
 qqnorm(resid(model_2))
 qqline(resid(model_2))
 shapiro.test(resid(model_2))
@@ -132,13 +176,13 @@ plot(fitted(model_2), fitResid, ylab = "Residuals", xlab = "Fitted values")
 # Though might have an issue since concentrated in the middle.
 # No one residual "stands out"  a lot from the basic random pattern of residuals - no  big outliers.
 ncvTest(model_2)
-# p-value of 0.19338 - we're okay here though
+# p-value of 0.40766 - we're okay here though
 bptest(model_2)
-# p-value of 0.0001097 - indicates presence of heteroskedasticity (studentize the original BP test)
+# p-value of 0.0005398 - indicates presence of heteroskedasticity (studentize the original BP test)
 # compare to White standard errors to see if they're inflated
 summary(model_2)
 coeftest(model_2, vcov = vcovHC(model_2, "HC1"))
-# standard errors are pretty similar to robust White se so we are okay
+# standard errors(se) are not too far apart from the robust White se
 
 # Standard plots
 par(mfrow=c(2,2))
@@ -154,7 +198,6 @@ numericVars <- model_2Data %>% select_if(is.numeric)
 ggpairs(numericVars)
 # Correlation doesn't seem to be an issue but check VIF since we only do numeric vars above and ignore factors
 vif(model_2)
-}
 # Really small VIF values - none of them are even close to 10 => ok
 
 # Model - model_3
