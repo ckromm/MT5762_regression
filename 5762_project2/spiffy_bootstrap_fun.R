@@ -4,6 +4,7 @@
 #dataset: dataframe in R. The data be invertable.
 #nsim: The number of bootstrapped simulations
 #yvar: the response variable of the linear regression of interest. 
+
 dataset<-df<-fit3Data
 nsim<-30
 yvar<-response<-"bwt"
@@ -23,12 +24,16 @@ spiffy_boots <- function(dataset, nsim, yvar){
   
   #run the boot function
   betas_df <- sapply(1:nsim,  function(s) bs_fun(dataset, nsim, yvar))
+
   boot_df <-t(as.data.frame(t(betas_df)))
   boot_df <-unlist()
   library(tidyverse)
   regress <- as.formula( paste(response, "~", "."))
   coef_nam <- coef(lm(regress, data= boots))
   sep1 <-separate(boot_df, into =coef_nam)
+
+  boot_df <-as.data.frame(t(betas_df))
+
   
   #row names
   rownames(boot_df) <- c(1:nsim)
